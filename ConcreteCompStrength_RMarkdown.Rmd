@@ -1,0 +1,341 @@
+---
+title: "Concrete Compressive Strength Data Analysis"
+author: "Mahal Tran"
+output: html_notebook
+---
+
+```{r, setup}
+library(tidyverse)
+library(scales)
+library(reshape2)
+library(UsingR)
+setwd("~/BSDS 100/Final Project")
+concrete_compress <- read_csv("Concrete Compressive Strength.csv")
+```
+
+```{r, rename columns}
+
+abbrevNames <- c("c1_cement","c2_bf_slag","c3_ash","c4_water","c5_suprplast","c6_coarse_agg","c7_fine_agg", "days_age","compress_strength")
+colnames(concrete_compress) <- abbrevNames
+
+```
+
+2.1. Explain the dataset, why it interested you. 
+
+
+Concrete is one of the most vital construction materials worldwide. As a Civil Engineering major, concrete is central to a lot of the work civil engineers do. I thought that a dataset concerning such an important aspect of my field would be interesting and beneficial for my own understanding. This dataset, "Concrete Compressive Strength" from Kaggle, is based on research data from Professor I Chang-Yeh’s paper, “Modeling of strength of high-performance concrete using artificial neural networks”. The data was collected by testing cylinders of concrete of different compositions and ages in a compression machine until they fractured. The strength is calculated by dividing the failure load force by the surface area of the cylinder.
+
+
+2.2. State the problem. 
+
+Based on the information provided in this dataset, is it possible to create a decent regression model that can predict the compressive strength performance of a concrete cylinder in relation to its components or age? There are 8 input variables, which are 7 component weights & the age of the sample, and 1 output variable for this dataset, the concrete's compressive strength. 
+
+
+2.3. Explain your step-by-step analyses that lead to any final conclusions. 
+
+Part 1: Background Research/Information
+Part 2: Comparative Graph Analysis
+Part 3: Determination of Variables of Interest
+Part 4: Regression Models (Linear vs. Statistical)
+Part 5: Conclusions
+
+*Part 1*
+
+To understand this dataset & begin analyzing it, we must first understand how concrete works, and the variables presented in the dataset. A basic concrete mix contains binder, aggregates, water, and admixtures. Binder, usually cement & other materials, is mixed with water to create paste. This paste is mixed into the aggregates, which are rocks, sand, and other inert materials, to create concrete. Admixtures can be added into concrete to give it certain characteristics.
+
+Component 1, Cement: Basic Concrete Binder
+Component 2, Blast Furnace Slag: Improves Concrete Bond, Tensile Strength, Durability, Reduces Permeability, Binder Additive
+Component 3, Fly Ash: Increases Durability, Lowers Permeability, Reduces Thermal Cracking, Binder Additive
+Component 4, Water: Vital to Binding & Hardening Process, Enables Mixing & Formation of Concrete
+Component 5, Superplasticizer: Increases Tensile Strength, Fluidity, can reduce Water needed in Concrete, Admixture
+Component 6, Coarse Aggregate: Inert Filler, Reduces Water, Aggregate, Reduced Surface Area
+Component 7, Fine Aggregate: Inert Filler, Aggregate, More Surface Area
+
+*Part 2*
+
+Step 1: Mutate dataset to add columns for total_kg per batch & component percentage ratios
+Step 2: Melt all ratio columns into new data frame according to component ID, compressive strength, and trial #. 
+Step 3: Create comparative graphs using a faceted scatterplot & a stacked bar chart to depict component ratios over compressive strength
+Step 4: Isolate & remove outliers 
+Step 5: Compare Best & Worst Trials
+
+*Part 3*
+
+In Chang-Yeh’s original paper, he stresses the importance of the Water to Binder Ratio. In this dataset, the Cement, Fly Ash, and Blast Furnace Slag are the binder. This study uses artificial neural networks for modeling, but also includes a statistical regression model. 
+
+The statistical regression function used:
+f(t) = aX^b[c*log(t) + d]
+
+X = water/binder ratio
+t = age 
+Regression coefficients: a,b,c,d
+
+Based on my knowledge, I believe that a linear model is insufficient for predicting concrete compressive strength based on water to binder ratio, so I will be making an additional statistical model based on the original research. 
+
+
+*Part 4*
+
+Step 1: Mutate data to account for water to binder ratio (binder = cement + slag + fly ash)
+Step 2: Create a linear regression model & graph of concrete compressive strength
+Step 3: Create a regression graph based on the statistical regression from the research
+
+*Part 5*
+
+Due to the natural variability of concrete, especially its curing conditions & compositional attributes, Concrete Compressive Strength cannot be accurately predicted using a linear regression model of Concrete Compressive Strength & Water to Binder Ratio, with only a weak-moderate negative R² of ~0.39. 
+However, utilizing a statistical regression based on the research source, a nonlinear regression model produces an R² of ~0.77, a moderately strong correlation between Concrete Compressive Strength & Water to Binder Ratio.
+In the statistical regression model, age is also an independent variable, so I would like to incorporate that into my visualizations. Additionally, since component 5, superplasticizer, is used to replace or minimize the amount of water in concrete mixtures, I believe that finding a relationship between water & superplasticizer ratio could positively contribute to a predictive model of Concrete Compressive Strength.
+
+2.4. Discuss the challenges in the problem and the data set, and how you circumvented these problems. 
+
+
+2.5. Explain all the methods you used in the analysis of  your data. 
+
+
+
+
+```{r}
+ccs_ratios <- concrete_compress %>%
+  mutate(batch_n = 1:nrow(concrete_compress), total_kg = c1_cement+c2_bf_slag+c3_ash+c4_water+c5_suprplast+c6_coarse_agg+c7_fine_agg) %>%
+  relocate(batch_n)%>%
+  mutate(c1_ratio = c1_cement/total_kg,
+         c2_ratio = c2_bf_slag/total_kg,
+         c3_ratio = c3_ash/total_kg,
+         c4_ratio = c4_water/total_kg,
+         c5_ratio = c5_suprplast/total_kg,
+         c6_ratio = c6_coarse_agg/total_kg,
+         c7_ratio = c7_fine_agg/total_kg,)
+
+  
+```
+
+```{r, Melt & Compare Graphs}
+
+melted_ccs <- data.frame(mix_n = ccs_ratios$batch_n,
+                         compressive_strength =ccs_ratios$compress_strength,
+                         component_ratio = c(ccs_ratios$c1_ratio, 
+                                             ccs_ratios$c2_ratio,
+                                             ccs_ratios$c3_ratio,
+                                             ccs_ratios$c4_ratio,
+                                             ccs_ratios$c5_ratio,
+                                             ccs_ratios$c6_ratio,
+                                             ccs_ratios$c7_ratio),
+                         c_ID = c(rep("c1",nrow(ccs_ratios)),
+                                  rep("c2",nrow(ccs_ratios)),
+                                  rep("c3",nrow(ccs_ratios)),
+                                  rep("c4",nrow(ccs_ratios)),
+                                  rep("c5",nrow(ccs_ratios)),
+                                  rep("c6",nrow(ccs_ratios)),
+                                  rep("c7",nrow(ccs_ratios))))
+
+
+melted_ccs_percents <- melted_ccs%>%
+  mutate(component_percent = component_ratio*100)
+
+ggplot(melted_ccs_percents, aes(compressive_strength, component_ratio))+
+  geom_col(position = 'stack', aes(col = c_ID, fill = c_ID), width =.3)
+```
+
+```{r, Correct for Outliers}
+ccs_no_outliers <- melted_ccs_percents %>%
+  group_by(compressive_strength)%>%
+  mutate(percent_sum = sum(component_ratio)) %>%
+  filter(percent_sum <= 1.1) 
+
+ccs_div_outliers <- melted_ccs_percents %>%
+  group_by(compressive_strength)%>%
+  mutate(percent_sum = sum(component_ratio)) %>%
+  filter(percent_sum >= 1.1) 
+
+outlier_batches <- unique(ccs_div_outliers$mix_n, incomparables = FALSE)
+
+ccs_ratios_outliers <- ccs_ratios %>%
+  filter(batch_n %in% outlier_batches) %>%
+  group_by(compress_strength) %>%
+  sample_n(1) %>%
+  ungroup()
+chosen_outliers <- unique(ccs_ratios_outliers$batch_n, incomparables = FALSE)
+
+melted_no_outliers <- melted_ccs_percents %>%
+  group_by(compressive_strength)%>%
+  filter(mix_n %in% chosen_outliers | sum(component_ratio) <= 1.1)
+  
+
+
+ggplot(ccs_no_outliers, aes(compressive_strength, component_ratio)) +
+  geom_col(position = 'stack', aes(fill = c_ID), width =.5) +
+  labs(x = "Compressive Strength (MPa)",
+       y = "Component Ratio",
+       fill = "Component:")+
+  scale_fill_discrete(labels = c("Cement(C1)","B.F. Slag(C2)", "Fly Ash(C3)",
+                                 "Water(C4)","Superplast.(C5)", "Coarse Agg.(C6)", "Fine Agg.(C7)")) 
+  
+
+ggplot(melted_no_outliers, aes(compressive_strength, component_ratio)) +
+  geom_col(position = 'stack', aes(fill = c_ID), width =.5) +
+  labs(x = "Compressive Strength (MPa)",
+       y = "Component Ratio",
+       fill = "Component:")+
+  scale_fill_discrete(labels = c("Cement(C1)","B.F. Slag(C2)", "Fly Ash(C3)",
+                                 "Water(C4)","Superplast.(C5)", "Coarse Agg.(C6)", "Fine Agg.(C7)"))
+
+```
+
+```{r} 
+
+ggplot(ccs_ratios, aes(x =days_age , y = compress_strength)) +
+  geom_boxplot()
+
+
+best_ccs_ratios <- ccs_ratios %>%
+  arrange(desc(compress_strength))%>%
+  filter(compress_strength >= 75) 
+
+best_worst_ccs_ratios <- melted_ccs_percents %>%
+  filter(compressive_strength > 82 | compressive_strength < 2.5)
+
+ggplot(best_worst_ccs_ratios, aes(compressive_strength, component_ratio)) +
+  geom_col(position = 'stack', aes(fill = c_ID), width =1) +
+  labs(x = "Compressive Strength (MPa)",
+       y = "Component Ratio",
+       fill = "Component:")+
+  scale_fill_discrete(labels = c("Cement(C1)","B.F. Slag(C2)", "Fly Ash(C3)",
+                                 "Water(C4)","Superplast.(C5)", "Coarse Agg.(C6)", "Fine Agg.(C7)")) +
+  scale_x_discrete(labels = c("2.331808 kPa (Worst)", "82.59922 kPa (Best)"))
+  
+
+```
+
+
+```{r}
+ggplot(melted_ccs_percents, aes(compressive_strength, component_ratio)) +
+  geom_point(position = 'stack', aes(fill = c_ID), width =.5) +
+  labs(x = "Compressive Strength (MPa)",
+       y = "Component Ratio",
+       fill = "Component:")+
+  scale_fill_discrete(labels = c("Cement(C1)","B.F. Slag(C2)", "Fly Ash(C3)",
+                                 "Water(C4)","Superplast.(C5)", "Coarse Agg.(C6)", "Fine Agg.(C7)"))
+
+
+```
+
+ 
+```{r}
+comp_names <- function(x) {c("Cement(C1)","B.F. Slag(C2)", "Fly Ash(C3)",
+  "Water(C4)","Superplast.(C5)", 
+  "Coarse Agg.(C6)", "Fine Agg.(C7)")
+}
+ggplot(melted_ccs_percents, aes(component_ratio,compressive_strength)) +
+  geom_point(aes(color = c_ID)) +
+  labs(y = "Compressive Strength (MPa)",
+       x = "Component Ratio",
+       color = "Component:")+
+  facet_wrap(~c_ID, labeller = as_labeller(comp_names))
+
+
+```
+
+
+
+```{r}
+
+
+
+```
+
+
+
+
+
+```{r}
+#Binder: Cement + Slag + Ash
+
+binder_ccs <- ccs_ratios %>%
+  mutate(comp_binder = c1_cement+c2_bf_slag+c3_ash,
+         binder_ratio = comp_binder/total_kg,
+         water_binder = c4_water/comp_binder,
+         agg_binder = (c6_coarse_agg+c7_fine_agg)/comp_binder)
+
+summary(lm(compress_strength~water_binder, binder_ccs))
+wb_ccs_lm <- lm(compress_strength~water_binder, binder_ccs)
+wb_r2 <- summary(wb_ccs_lm)$r.squared
+wb_r2
+summary(lm(compress_strength~agg_binder, binder_ccs))
+
+ggplot(binder_ccs) +
+  geom_point(aes(water_binder, compress_strength, col = days_age)) +
+  geom_abline(slope = -81.88, intercept = 74.24, col = "red") +
+  labs(y = "Compressive Strength (MPa)",
+       x = "Water to Binder Ratio (0 to 1)",
+       color = "Age (Days)") 
+  
+ggplot(binder_ccs, aes(days_age, compress_strength))+
+  geom_point(aes(water_binder, compress_strength, col = days_age)) +
+  geom_abline(slope = -81.88, intercept = 74.24, col = "red") +
+  labs(y = "Compressive Strength (MPa)",
+       x = "Water to Binder Ratio (0 to 1)",
+       color = "Age (Days)")
+
+ggplot(binder_ccs, aes(days_age, compress_strength))+
+  geom_point(aes(water_binder, compress_strength, col = days_age, alpha = c5_suprplast)) +
+  geom_abline(slope = -81.88, intercept = 74.24, col = "red") +
+  labs(y = "Compressive Strength (MPa)",
+       x = "Water to Binder Ratio (0 to 1)",
+       color = "Superplast. Ratio")
+```
+
+```{r}
+
+
+ggplot(binder_ccs, aes(water_binder, compress_strength, col = days_age)) +
+  geom_point() +
+  labs(y = "Compressive Strength (MPa)",
+       x = "Water to Binder Ratio (0 to 1)",
+       color = "Age (Days)")
+
+a = 13.802	
+b = -1.2753375	
+c = 0.266275	
+d = 0.1176875
+
+regression_stat_fun <- function(x,t){a*(x^b)*(c*log(t)+d)}
+
+ccs_reg_pred <- binder_ccs %>%
+  mutate(reg_pred = regression_stat_fun(water_binder, days_age))
+
+summary(lm(compress_strength~reg_pred, ccs_regression_pred))
+
+ggplot(ccs_reg_pred, aes(water_binder, compress_strength, col = days_age)) +
+  geom_point() +
+  geom_smooth(aes(water_binder, reg_pred)) +
+  labs(y = "Compressive Strength (MPa)",
+       x = "Water to Binder Ratio (0 to 1)",
+       color = "Age (Days)")
+```
+
+```{r}
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
